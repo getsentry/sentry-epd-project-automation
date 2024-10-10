@@ -28,6 +28,7 @@ interface IssueWithDetails {
 
 const RepoToTeamMap: Record<string, string> = {
   'getsentry/sentry-javascript': 'Web Frontend SDKs',
+  'getsentry/sentry-python': 'Web Backend SDKs',
 };
 
 export async function syncGithubProjectForIssue(
