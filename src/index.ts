@@ -29,6 +29,11 @@ const app = express();
 
 app.use(bodyParser.json());
 
+app.get('/', (req, res) => {
+  res.send(`This is a webhook server for syncing Github issues with Github projects. 
+Point the webhook to the /webhook endpoint.`);
+});
+
 app.post('/webhook', (req, res) => {
   const webhookSecret = process.env.GH_WEBHOOK_SECRET;
   const githubToken = process.env.GH_TOKEN;
