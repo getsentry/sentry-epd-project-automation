@@ -213,6 +213,9 @@ async function getProjectFields(
         name: string;
         options: { id: string; name: string }[];
       };
+      goalField: { id: string; name: string };
+      subGoalField: { id: string; name: string };
+      projectField: { id: string; name: string };
     } | null;
   }>(
     /* GraphQL */ `
@@ -241,6 +244,24 @@ async function getProjectFields(
                 }
               }
             }
+            goalField: field(name: "Goal (v2)") {
+              ... on ProjectV2Field {
+                name
+                id
+              }
+            }
+            subGoalField: field(name: "Sub-Goal") {
+              ... on ProjectV2Field {
+                name
+                id
+              }
+            }
+            projectField: field(name: "Project") {
+              ... on ProjectV2Field {
+                name
+                id
+              }
+            }
           }
         }
       }
@@ -250,7 +271,13 @@ async function getProjectFields(
     },
   );
 
-  return { goals: res.node?.goals, teams: res.node?.teams };
+  return {
+    goals: res.node?.goals,
+    teams: res.node?.teams,
+    goalFieldId: res.node?.goalField.id,
+    subGoalFieldId: res.node?.subGoalField.id,
+    projectFieldId: res.node?.projectField.id,
+  };
 }
 
 async function addProjectToIssue(
@@ -353,9 +380,18 @@ async function setGoalOnProjectItem(
     goalName: string;
   },
 ) {
-  const { goals } = await getProjectFields(graphqlWithAuth, {
+  const { goals, goalFieldId } = await getProjectFields(graphqlWithAuth, {
     projectId,
   });
+
+  if (goalFieldId) {
+    await setTextFieldOnProjectItem(graphqlWithAuth, {
+      fieldId: goalFieldId,
+      projectId,
+      itemId,
+      fieldText: goalName,
+    });
+  }
 
   const fieldId = goals?.id;
   const optionId = goals?.options.find(
@@ -449,6 +485,51 @@ async function setOptionFieldOnProjectItem(
       fieldId,
       projectId,
       optionId,
+      itemId,
+    },
+  );
+}
+
+async function setTextFieldOnProjectItem(
+  graphqlWithAuth: typeof graphql,
+  {
+    projectId,
+    itemId,
+    fieldId,
+    fieldText,
+  }: {
+    projectId: string;
+    itemId: string;
+    fieldId: string;
+    fieldText: string;
+  },
+) {
+  await graphqlWithAuth(
+    /* GraphQL */ `
+      mutation updateOptionFieldOnProjectItem(
+        $projectId: ID!
+        $fieldId: ID!
+        $itemId: ID!
+        $fieldText: String!
+      ) {
+        updateProjectV2ItemFieldValue(
+          input: {
+            fieldId: $fieldId
+            itemId: $itemId
+            projectId: $projectId
+            value: { text: $fieldText }
+          }
+        ) {
+          projectV2Item {
+            id
+          }
+        }
+      }
+    `,
+    {
+      fieldId,
+      projectId,
+      fieldText,
       itemId,
     },
   );
