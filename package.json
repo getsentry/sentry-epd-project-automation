@@ -1,0 +1,24 @@
+{
+  "name": "sentry-project-automation",
+  "version": "0.0.0",
+  "description": "Managing project automation for Sentry & Github",
+  "main": "dist/index.js",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "format": "prettier --write ."
+  },
+  "volta": {
+    "node": "22.7.0",
+    "yarn": "4.5.0"
+  },
+  "dependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.7.5",
+    "express": "^4.21.1",
+    "prettier": "^3.3.3",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}
