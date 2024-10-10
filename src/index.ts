@@ -1,5 +1,5 @@
 import express from 'express';
-import { syncGithubProjectForIssue } from './utils/sync-gh-project';
+import { syncGithubProjectForIssue } from './utils/sync-gh-project.js';
 import { Webhooks } from '@octokit/webhooks';
 import bodyParser from 'body-parser';
 
