@@ -26,5 +26,5 @@ You can get this to run locally and send Webhook events to your local server via
 3. Install dependencies locally with `yarn`
 4. Start your server locally
    a. You'll need to set the required env. vars in `.env`
-   b. Run `yarn start` to start the dev server on http://localhost:3000
+   b. Run `yarn dev` to start the dev server on http://localhost:8080
 5. Run `yarn smee --url https://smee.io/YOUR_SMEE_URL --path /webhook` in another terminal window to proxy events
