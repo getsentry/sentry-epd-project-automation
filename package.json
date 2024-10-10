@@ -4,9 +4,10 @@
   "description": "Managing project automation for Sentry & Github",
   "main": "dist/index.js",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "tsc",
-    "start": "tsx src/index.ts",
+    "start": "tsx --env-file .env src/index.ts",
     "format": "prettier --write ."
   },
   "volta": {
@@ -14,11 +15,19 @@
     "yarn": "4.5.0"
   },
   "dependencies": {
+    "@octokit/core": "^6.1.2",
+    "@octokit/graphql": "^8.1.1",
+    "@octokit/webhooks": "^13.3.0",
     "@types/express": "^5.0.0",
     "@types/node": "^22.7.5",
+    "body-parser": "^1.20.3",
     "express": "^4.21.1",
     "prettier": "^3.3.3",
+    "smee-client": "^2.0.3",
     "tsx": "^4.19.1",
     "typescript": "^5.6.3"
+  },
+  "devDependencies": {
+    "@types/body-parser": "^1"
   }
 }
