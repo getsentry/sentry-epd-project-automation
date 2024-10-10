@@ -4,6 +4,10 @@ interface IssueWithDetails {
   id: string;
   title: string;
   number: number;
+  issueType?: {
+    id: string;
+    name: string;
+  };
   projectItems: {
     nodes: {
       id: string;
@@ -44,7 +48,7 @@ export async function syncGithubProjectForIssue(
   const graphqlWithAuth = graphql.defaults({
     headers: {
       authorization: `token ${githubToken}`,
-      'GraphQL-Features': 'sub_issues',
+      'GraphQL-Features': 'sub_issues,issue_types',
     },
   });
 
@@ -60,6 +64,11 @@ export async function syncGithubProjectForIssue(
         id
         title
         number
+
+        issueType {
+          id
+          name
+        }
 
         projectItems(first: 50) {
           nodes {
@@ -122,20 +131,31 @@ export async function syncGithubProjectForIssue(
 
   const teamName = RepoToTeamMap[issueFullRepository];
 
-  const root = getRoot(res.node);
+  const goalIssue = findParentByType(res.node, 'Goal');
+  const subGoalIssue = findParentByType(res.node, 'Sub-Goal');
+  const projectIssue = findParentByType(res.node, 'Project');
+
   const issue = res.node;
 
-  if (root === issue) {
-    return { status: 'Issue is root issue, skipping...' };
+  if (!goalIssue) {
+    return { status: 'Goal issue not found, skipping...' };
   }
 
-  const rootEpdProjectItem = root.projectItems.nodes.find(
+  if (goalIssue === issue) {
+    return { status: 'Issue is goal issue, skipping...' };
+  }
+
+  const goalIssueProjectItem = goalIssue.projectItems.nodes.find(
     (node) => node.project.id === projectId,
   );
 
-  if (!rootEpdProjectItem) {
+  if (!goalIssueProjectItem) {
     return { status: 'Root issue is not in specified project, skipping...' };
   }
+
+  const goalName = goalIssue.title;
+  const subGoalName = subGoalIssue?.title;
+  const projectName = projectIssue?.title;
 
   // Scenario 1: Issue is not yet in project
   const issueProjectItem = issue.projectItems.nodes.find(
@@ -150,8 +170,10 @@ export async function syncGithubProjectForIssue(
     await addProjectToIssue(graphqlWithAuth, {
       projectId,
       issueId: issue.id,
-
-      goalName: root.title,
+      goalName,
+      teamName,
+      subGoalName,
+      projectName,
     });
     return { status: 'Issue added to project' };
   }
@@ -159,14 +181,14 @@ export async function syncGithubProjectForIssue(
   // Scenario 2: Issue is in project - check if goal is correct
   const goal = issueProjectItem.goal;
 
-  if (!goal || goal.name !== root.title) {
+  if (!goal || goal.name !== goalName) {
     console.log(
       `Issue with ID ${issue.id} is in EPD Projects but has incorrect goal, updating...`,
     );
     await setGoalOnProjectItem(graphqlWithAuth, {
       projectId,
       itemId: issueProjectItem.id,
-      goalName: root.title,
+      goalName,
     });
     console.log('Project goal updated!');
   }
@@ -185,14 +207,34 @@ export async function syncGithubProjectForIssue(
     console.log('Project team updated!');
   }
 
+  // Update remaining fields
+  console.log(
+    `Updating fields on the project: Goal="${goalName || '<none>'}", Sub-Goal="${subGoalName || '<none>'}", Project="${projectName || '<none>'}"`,
+  );
+  await setFieldsOnProjectItem(graphqlWithAuth, {
+    projectId,
+    itemId: issueProjectItem.id,
+    goalName,
+    subGoalName,
+    projectName,
+  });
+
   return { status: 'Issue project item is up-to-date' };
 }
 
-function getRoot(issue: IssueWithDetails): IssueWithDetails {
-  if (!issue.parent) {
+function findParentByType(
+  issue: IssueWithDetails,
+  issueType: string,
+): IssueWithDetails | null {
+  if (issue.issueType?.name === issueType) {
     return issue;
   }
-  return getRoot(issue.parent);
+
+  if (!issue.parent) {
+    return null;
+  }
+
+  return findParentByType(issue.parent, issueType);
 }
 
 async function getProjectFields(
@@ -287,11 +329,16 @@ async function addProjectToIssue(
     issueId,
     goalName,
     teamName,
+    subGoalName,
+    // NOTE: This is not the name of the project, but the project field
+    projectName,
   }: {
     projectId: string;
     issueId: string;
     goalName: string;
     teamName?: string;
+    subGoalName?: string;
+    projectName?: string;
   },
 ) {
   // Add project to issue
@@ -316,18 +363,6 @@ async function addProjectToIssue(
         ) {
           item {
             id
-            project {
-              goals: field(name: "Goal") {
-                ... on ProjectV2SingleSelectField {
-                  name
-                  id
-                  options {
-                    id
-                    name
-                  }
-                }
-              }
-            }
           }
         }
       }
@@ -339,15 +374,6 @@ async function addProjectToIssue(
   );
 
   const itemId = res.addProjectV2ItemById.item.id;
-  const goalOptions = res.addProjectV2ItemById.item.project.goals.options;
-
-  const optionId = goalOptions.find((option) => option.name === goalName)?.id;
-  const fieldId = res.addProjectV2ItemById.item.project.goals.id;
-
-  if (!optionId || !fieldId) {
-    console.log(`Goal with name ${goalName} not found in project, skipping...`);
-    return;
-  }
 
   // Update the "Goal" field
   console.log(`Updating goal for issue ${issueId} to ${goalName}...`);
@@ -366,8 +392,20 @@ async function addProjectToIssue(
       teamName,
     });
   }
+
+  console.log(
+    `Updating fields on the project: Goal=${goalName || '<none>'}, Sub-Goal=${subGoalName || '<none>'}, Project=${projectName || '<none>'}`,
+  );
+  await setFieldsOnProjectItem(graphqlWithAuth, {
+    projectId,
+    itemId,
+    goalName,
+    subGoalName,
+    projectName,
+  });
 }
 
+/** LEGACY - old "Goals" field, eventually remove this. */
 async function setGoalOnProjectItem(
   graphqlWithAuth: typeof graphql,
   {
@@ -380,18 +418,9 @@ async function setGoalOnProjectItem(
     goalName: string;
   },
 ) {
-  const { goals, goalFieldId } = await getProjectFields(graphqlWithAuth, {
+  const { goals } = await getProjectFields(graphqlWithAuth, {
     projectId,
   });
-
-  if (goalFieldId) {
-    await setTextFieldOnProjectItem(graphqlWithAuth, {
-      fieldId: goalFieldId,
-      projectId,
-      itemId,
-      fieldText: goalName,
-    });
-  }
 
   const fieldId = goals?.id;
   const optionId = goals?.options.find(
@@ -533,4 +562,53 @@ async function setTextFieldOnProjectItem(
       itemId,
     },
   );
+}
+
+async function setFieldsOnProjectItem(
+  graphqlWithAuth: typeof graphql,
+  {
+    projectId,
+    itemId,
+    goalName,
+    subGoalName,
+    projectName,
+  }: {
+    projectId: string;
+    itemId: string;
+    goalName: string;
+    subGoalName?: string;
+    projectName?: string;
+  },
+) {
+  const { goalFieldId, subGoalFieldId, projectFieldId } =
+    await getProjectFields(graphqlWithAuth, {
+      projectId,
+    });
+
+  if (goalFieldId && goalName) {
+    await setTextFieldOnProjectItem(graphqlWithAuth, {
+      fieldId: goalFieldId,
+      projectId,
+      itemId,
+      fieldText: goalName,
+    });
+  }
+
+  if (subGoalFieldId && subGoalName) {
+    await setTextFieldOnProjectItem(graphqlWithAuth, {
+      fieldId: subGoalFieldId,
+      projectId,
+      itemId,
+      fieldText: subGoalName,
+    });
+  }
+
+  if (projectFieldId && projectName) {
+    await setTextFieldOnProjectItem(graphqlWithAuth, {
+      fieldId: projectFieldId,
+      projectId,
+      itemId,
+      fieldText: projectName,
+    });
+  }
 }
