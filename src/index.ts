@@ -68,8 +68,6 @@ app.post('/webhook', (req, res) => {
 
   // This event occurs when there is activity relating to sub-issues.
   if (eventType === 'sub_issues') {
-    console.log('Sub-Issues event received');
-
     const payload = req.body as {
       action:
         | 'parent_issue_added'
@@ -85,6 +83,8 @@ app.post('/webhook', (req, res) => {
       sub_issue_repo?: GithubWebhookRepository;
       repository?: GithubWebhookRepository;
     };
+
+    console.log(`sub_issues event with action "${payload.action}" received`);
 
     const issueId = payload.sub_issue.node_id;
 
