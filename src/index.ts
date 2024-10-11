@@ -1,5 +1,5 @@
 import express from 'express';
-import { syncGithubProjectForIssue } from './utils/sync-gh-project.js';
+import { syncGithubProjectOfIssueBasedOnParentIssues } from './syncGithubProjectOfIssueBasedOnParentIssues.js';
 import { Webhooks } from '@octokit/webhooks';
 import bodyParser from 'body-parser';
 
@@ -95,7 +95,7 @@ app.post('/webhook', (req, res) => {
 
     console.log(`Syncing Github project for issue ${issueId}`);
 
-    syncGithubProjectForIssue(githubToken, {
+    syncGithubProjectOfIssueBasedOnParentIssues(githubToken, {
       issueId,
       projectId,
     })
