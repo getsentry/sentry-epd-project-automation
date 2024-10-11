@@ -137,6 +137,10 @@ export async function syncGithubProjectForIssue(
 
   const issue = res.node;
 
+  console.log(
+    `Fetched GitHub issue "${issue.title}" from repo "${issueFullRepository}"`,
+  );
+
   if (!goalIssue) {
     return { status: 'Goal issue not found, skipping...' };
   }

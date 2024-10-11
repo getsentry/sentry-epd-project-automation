@@ -93,6 +93,8 @@ app.post('/webhook', (req, res) => {
       return;
     }
 
+    console.log(`Syncing Github project for issue ${issueId}`);
+
     syncGithubProjectForIssue(githubToken, {
       issueId,
       projectId,
