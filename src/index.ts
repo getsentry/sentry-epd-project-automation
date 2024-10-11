@@ -96,10 +96,15 @@ app.post('/webhook', (req, res) => {
     syncGithubProjectForIssue(githubToken, {
       issueId,
       projectId,
-    }).then(({ status }) => {
-      console.log(status);
-      res.send({ success: true, status });
-    });
+    })
+      .then(({ status }) => {
+        console.log(status);
+        res.send({ success: true, status });
+      })
+      .catch((error) => {
+        console.error(error);
+        res.status(400).send({ success: false, error: `${error}` });
+      });
   }
 });
 
