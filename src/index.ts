@@ -2,6 +2,8 @@ import express from 'express';
 import { syncGithubProjectOfIssueBasedOnParentIssues } from './syncGithubProjectOfIssueBasedOnParentIssues.js';
 import { Webhooks } from '@octokit/webhooks';
 import bodyParser from 'body-parser';
+import { NumberLiteralType } from 'typescript';
+import { syncGithubProjectOfChildIssues } from './syncGithubProjectOfChildIssues.js';
 
 interface GithubWebhookRepository {
   id: number;
@@ -107,7 +109,48 @@ app.post('/webhook', (req, res) => {
         console.error(error);
         res.status(400).send({ success: false, error: `${error}` });
       });
+    return;
   }
+
+  // This event occurs when an issue is updated
+  if (eventType === 'issues') {
+    const payload = req.body as {
+      action: 'edited' | 'opened' | string;
+      issue: GithubWebhookIssue;
+      repository: GithubWebhookRepository;
+    };
+
+    console.log(`issues event with action "${payload.action}" received`);
+
+    if (payload.action !== 'edited') {
+      res.send(`nothing to do (issues action is ${payload.action})`);
+      return;
+    }
+
+    const issueId = payload.issue.node_id;
+
+    if (!issueId) {
+      res.status(400).send('issue_id not found');
+      return;
+    }
+
+    console.log(`Syncing Github project for issue ${issueId}`);
+    syncGithubProjectOfChildIssues(githubToken, {
+      issueId,
+      projectId,
+    })
+      .then(({ status }) => {
+        console.log(status);
+        res.send({ success: true, status });
+      })
+      .catch((error) => {
+        console.error(error);
+        res.status(400).send({ success: false, error: `${error}` });
+      });
+    return;
+  }
+
+  res.send('nothing to do');
 });
 
 app.listen(port, () => {

@@ -4,6 +4,7 @@ import {
   setOptionFieldOnProjectItem,
 } from './utils/updateProjectItem.js';
 import { getProjectFields } from './utils/getProjectFields.js';
+import { getTeamForFullRepo } from './utils/getTeamForRepo.js';
 
 interface IssueWithDetails {
   id: string;
@@ -35,11 +36,13 @@ interface IssueWithDetails {
   parent: IssueWithDetails | null;
 }
 
-const RepoToTeamMap: Record<string, string> = {
-  'getsentry/sentry-javascript': 'Web Frontend SDKs',
-  'getsentry/sentry-python': 'Web Backend SDKs',
-};
-
+/**
+ * This function is triggered when an issue has its parent issue updated.
+ * We want to pick the parent issue(s) recursively, find the ones with issueType = Goal / Sub-Goal / Project,
+ * and:
+ * 1. Add the issue to the project if it's not already there
+ * 2. Ensure that the goal, sub-goal, project, and team fields are set correctly for the sub-issue
+ */
 export async function syncGithubProjectOfIssueBasedOnParentIssues(
   githubToken: string,
   {
@@ -134,7 +137,7 @@ export async function syncGithubProjectOfIssueBasedOnParentIssues(
   // e.g. getsentry/projects
   const issueFullRepository = res.node.repository.nameWithOwner;
 
-  const teamName = RepoToTeamMap[issueFullRepository];
+  const teamName = getTeamForFullRepo(issueFullRepository);
 
   const goalIssue = findParentByType(res.node, 'Goal');
   const subGoalIssue = findParentByType(res.node, 'Sub-Goal');
