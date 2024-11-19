@@ -84,7 +84,7 @@ export async function syncGithubProjectOfChildIssues(
   const subGoalName = isSubGoal ? issue.title : undefined;
   const projectName = isProject ? issue.title : undefined;
 
-  return updateChildIssues(graphqlWithAuth, issue, {
+  return updateIssueAndChildIssues(graphqlWithAuth, issue, {
     projectId,
     goalName,
     subGoalName,
@@ -140,7 +140,7 @@ async function getSubIssues(graphqlWithAuth: typeof graphql, issueId: string) {
   return res.node;
 }
 
-async function updateChildIssues(
+async function updateIssueAndChildIssues(
   graphqlWithAuth: typeof graphql,
   issue: IssueWithSubIssues,
   {
@@ -155,6 +155,15 @@ async function updateChildIssues(
     projectName?: string;
   },
 ) {
+  // Update issue iteself
+  await updateProjectItemForIssue(graphqlWithAuth, issue, {
+    projectId,
+    projectName,
+    goalName,
+    subGoalName,
+  });
+
+  // No children? We are done!
   if (!issue.subIssues.nodes.length) {
     console.log(
       `No child issues found for issue "${issue.title}", skipping...`,
@@ -167,16 +176,8 @@ async function updateChildIssues(
   );
 
   for (const subIssue of issue.subIssues.nodes) {
-    await updateProjectItemForIssue(graphqlWithAuth, subIssue, {
-      projectId,
-      projectName,
-      goalName,
-      subGoalName,
-    });
-
-    // Recursively call this for child issues
     const subSubIssues = await getSubIssues(graphqlWithAuth, subIssue.id);
-    await updateChildIssues(graphqlWithAuth, subSubIssues, {
+    await updateIssueAndChildIssues(graphqlWithAuth, subSubIssues, {
       projectId,
       projectName,
       goalName,
