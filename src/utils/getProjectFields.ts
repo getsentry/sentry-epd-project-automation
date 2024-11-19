@@ -8,11 +8,6 @@ export async function getProjectFields(
     node: {
       id: string;
       title: string;
-      goals: {
-        id: string;
-        name: string;
-        options: { id: string; name: string }[];
-      };
       teams: {
         id: string;
         name: string;
@@ -29,16 +24,6 @@ export async function getProjectFields(
           ... on ProjectV2 {
             id
             title
-            goals: field(name: "Goal") {
-              ... on ProjectV2SingleSelectField {
-                name
-                id
-                options {
-                  id
-                  name
-                }
-              }
-            }
             teams: field(name: "Team") {
               ... on ProjectV2SingleSelectField {
                 name
@@ -49,7 +34,7 @@ export async function getProjectFields(
                 }
               }
             }
-            goalField: field(name: "Goal (v2)") {
+            goalField: field(name: "Goal") {
               ... on ProjectV2Field {
                 name
                 id
@@ -77,7 +62,6 @@ export async function getProjectFields(
   );
 
   return {
-    goals: res.node?.goals,
     teams: res.node?.teams,
     goalFieldId: res.node?.goalField.id,
     subGoalFieldId: res.node?.subGoalField.id,
