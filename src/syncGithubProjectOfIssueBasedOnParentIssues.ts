@@ -1,9 +1,5 @@
 import { graphql } from '@octokit/graphql';
-import {
-  setFieldsOnProjectItem,
-  setOptionFieldOnProjectItem,
-} from './utils/updateProjectItem.js';
-import { getProjectFields } from './utils/getProjectFields.js';
+import { setFieldsOnProjectItem } from './utils/updateProjectItem.js';
 import { getTeamForFullRepo } from './utils/getTeamForRepo.js';
 
 interface IssueWithDetails {
@@ -191,20 +187,6 @@ export async function syncGithubProjectOfIssueBasedOnParentIssues(
   }
 
   // Scenario 2: Issue is in project - check if goal is correct
-  const goal = issueProjectItem.goal;
-
-  if (!goal || goal.name !== goalName) {
-    console.log(
-      `Issue with ID ${issue.id} is in EPD Projects but has incorrect goal, updating...`,
-    );
-    await setGoalOnProjectItem(graphqlWithAuth, {
-      projectId,
-      itemId: issueProjectItem.id,
-      goalName,
-    });
-    console.log('Project goal updated!');
-  }
-
   const team = issueProjectItem.team;
 
   // Update remaining fields
@@ -293,14 +275,6 @@ async function addProjectToIssue(
 
   const itemId = res.addProjectV2ItemById.item.id;
 
-  // Update the "Goal" field (LEGACY - remove eventually...)
-  console.log(`Updating goal for issue ${issueId} to ${goalName}...`);
-  await setGoalOnProjectItem(graphqlWithAuth, {
-    projectId,
-    itemId,
-    goalName,
-  });
-
   console.log(
     `Updating fields on the project: Goal=${goalName || '<none>'}, Sub-Goal=${subGoalName || '<none>'}, Project=${projectName || '<none>'}, Team=${teamName || '<none>'}`,
   );
@@ -311,40 +285,5 @@ async function addProjectToIssue(
     subGoalName,
     projectName,
     teamName,
-  });
-}
-
-/** LEGACY - old "Goals" field, eventually remove this. */
-async function setGoalOnProjectItem(
-  graphqlWithAuth: typeof graphql,
-  {
-    projectId,
-    itemId,
-    goalName,
-  }: {
-    projectId: string;
-    itemId: string;
-    goalName: string;
-  },
-) {
-  const { goals } = await getProjectFields(graphqlWithAuth, {
-    projectId,
-  });
-
-  const fieldId = goals?.id;
-  const optionId = goals?.options.find(
-    (option) => option.name === goalName,
-  )?.id;
-
-  if (!fieldId || !optionId) {
-    console.log(`Goal with name ${goalName} not found in project, skipping...`);
-    return;
-  }
-
-  await setOptionFieldOnProjectItem(graphqlWithAuth, {
-    projectId,
-    itemId,
-    fieldId,
-    optionId,
   });
 }
