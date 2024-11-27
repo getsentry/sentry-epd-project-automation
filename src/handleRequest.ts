@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
-import { syncGithubProjectOfIssueBasedOnParentIssues } from './syncGithubProjectOfIssueBasedOnParentIssues.js';
 import { Webhooks } from '@octokit/webhooks';
+import { createAppAuth } from '@octokit/auth-app';
+import { syncGithubProjectOfIssueBasedOnParentIssues } from './syncGithubProjectOfIssueBasedOnParentIssues.js';
 import { syncGithubProjectOfChildIssues } from './syncGithubProjectOfChildIssues.js';
 
 interface GithubWebhookRepository {
@@ -24,17 +25,51 @@ interface GithubWebhookIssue {
   body: string;
 }
 
-export function handleRequest(req: Request, res: Response) {
-  const webhookSecret = process.env.GH_WEBHOOK_SECRET;
-  const githubToken = process.env.GH_TOKEN;
-  const projectId = process.env.GH_PROJECT_ID;
+async function authenticateApp({
+  appId,
+  privateKey,
+  installationId,
+}: {
+  appId: string | number;
+  privateKey: string;
+  installationId: string | number;
+}) {
+  const auth = createAppAuth({
+    appId,
+    privateKey,
+  });
 
-  if (!projectId || !githubToken || !webhookSecret) {
+  const data = await auth({ type: 'installation', installationId });
+  return data.token;
+}
+
+export async function handleRequest(req: Request, res: Response) {
+  const webhookSecret = process.env.GH_WEBHOOK_SECRET;
+  const projectId = process.env.GH_PROJECT_ID;
+  const ghAppId = process.env.GH_APP_ID;
+  const ghAppInstallationId = process.env.GH_APP_INSTALLATION_ID;
+  const ghAppPrivateKey = process.env.GH_APP_PRIVATE_KEY;
+
+  if (
+    !projectId ||
+    !ghAppId ||
+    !ghAppInstallationId ||
+    !ghAppPrivateKey ||
+    !webhookSecret
+  ) {
     res
       .status(500)
-      .send('GH_PROJECT_ID, GH_TOKEN, or GH_WEBHOOK_SECRET not set');
+      .send(
+        'GH_PROJECT_ID, GH_WEBHOOK_SECRET, GH_APP_ID, GH_APP_INSTALLATION_ID, or GH_APP_PRIVATE_KEY  not set',
+      );
     return;
   }
+
+  const githubToken = await authenticateApp({
+    appId: ghAppId,
+    privateKey: ghAppPrivateKey,
+    installationId: ghAppInstallationId,
+  });
 
   const eventType = req.headers['x-github-event'];
   const signature = req.headers['x-hub-signature-256'] as string;
@@ -111,7 +146,9 @@ export function handleRequest(req: Request, res: Response) {
     console.log(`issues event with action "${payload.action}" received`);
 
     if (payload.action !== 'edited') {
-      res.send(`nothing to do (issues action is ${payload.action})`);
+      res.send(
+        `nothing to do (issues action is ${JSON.stringify(payload.action)})`,
+      );
       return;
     }
 

@@ -15,7 +15,9 @@ You need to provide some env. vars for the server:
 - `GH_WEBHOOK_SECRET`: The same secret that was used when setting up the webhook. Must be the same for any webhook sending data to this server!
 - `GH_PROJECT_ID`: The GitHub Project (node) ID of the Board. This is `PVT_kwDOABVQ184AoBEL` for the EPD Projects board.
   - We make certain assumptions about the project. Mainly, that it has `Goal` and `Team` fields that are select fields.
-- `GH_TOKEN`: A classic GitHub token that has access to the organization (make sure to setup SSO for the token!), issues and projects.
+- `GH_APP_ID`: The ID of a Github App used for authentication.
+- `GH_APP_INSTALLATION_ID`: The installation ID of the App used for authentication.
+- `GH_APP_RRIVATE_KEY`: The private key of the App used for authentication.
 
 ## Running this locally
 
